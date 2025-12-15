@@ -1,173 +1,116 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>出社受付（カード自動割当）</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Segoe UI", Roboto, "Noto Sans JP";
-      padding:16px;
-      max-width:640px;
-      margin:auto;
-    }
-    h1 { font-size:20px; margin-bottom:8px; }
-    input, button {
-      font-size:16px;
-      padding:10px;
-      margin-top:8px;
-      width:100%;
-      box-sizing:border-box;
-    }
-    button { cursor:pointer; }
-    #result {
-      margin-top:16px;
-      font-size:18px;
-      font-weight:600;
-      line-height:1.6;
-    }
-    .note {
-      color:#666;
-      font-size:13px;
-      margin-top:12px;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>出社受付</title>
+<style>
+body {
+  font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN";
+  padding:16px;
+  max-width:640px;
+  margin:auto;
+}
+input, button {
+  font-size:16px;
+  padding:10px;
+  width:100%;
+  margin-top:8px;
+}
+#cardInfo {
+  margin-top:12px;
+  font-size:18px;
+  font-weight:bold;
+}
+</style>
 </head>
 
 <body>
-  <h1>出社受付（氏名入力）</h1>
-  <p>氏名を入力してください</p>
+<h1>出社受付</h1>
 
-  <input list="namelist" id="nameInput" placeholder="例：山田太郎" autocomplete="off" />
-  <datalist id="namelist"></datalist>
+<input list="namelist" id="nameInput" placeholder="氏名を入力" autocomplete="off" />
+<datalist id="namelist"></datalist>
 
-  <button id="submitBtn">受付する</button>
+<button id="assignBtn">カード割当</button>
+<div id="cardInfo"></div>
 
-  <div id="result"></div>
+<button id="nextBtn" style="display:none;">次へ</button>
 
-  <div class="note">
-    ※ 名簿にない場合は受付スタッフに声をかけてください
-  </div>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+<script>
+const csvUrl = "https://docs.google.com/spreadsheets/d/1xzsz9IDoku5vEY2wrMZzBiz34biTVfx98sUan4wNIwE/edit?gid=0#gid=0";
+const gasUrl = "https://script.google.com/macros/s/AKfycby9bW6yQI5ISExInd1B4YaSM2dnbxDGZWiuMJd9gr83tEWY4ddXFjc08Xb_Mfk89lOO/exec";
+const googleFormBase =
+  "https://docs.google.com/forms/d/e/XXXX/viewform?usp=pp_url";
 
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
+const entryName = "entry.1288388977";
+const entryCard = "entry.352252719";
+const entryDept = "entry.1018926610";
 
-      /* ===== 設定 ===== */
-      const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpGDiZD4OrEiEzIh4DMRN0eFbHkBGZSnxewenjI-jnTstC1U07dQ0mfvNBM5KW9M88tL5fqQ8fyLWy/pub?output=csv";
-      const gasAssignUrl = "https://script.google.com/macros/s/AKfycby9bW6yQI5ISExInd1B4YaSM2dnbxDGZWiuMJd9gr83tEWY4ddXFjc08Xb_Mfk89lOO/exec"; // 
+const params = new URLSearchParams(location.search);
+const shift = params.get("shift") || "day";
 
-      /* ===== データ ===== */
-      let employees = [];
+let employees = [];
+let assigned = null;
 
-      function normalizeName(s) {
-        return (s || "").replace(/\s+/g, "").toLowerCase();
-      }
+function normalize(s){
+  return (s||"").replace(/\s+/g,"").toLowerCase();
+}
 
-      /* ===== CSV読込 ===== */
-      function loadCsv() {
-        fetch(csvUrl)
-          .then(r => r.text())
-          .then(text => {
-            const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
-            employees = parsed.data
-              .map(row => ({
-                name: row.name?.trim(),
-                department: row.department?.trim()
-              }))
-              .filter(e => e.name);
-
-            const dl = document.getElementById("namelist");
-            dl.innerHTML = "";
-            [...new Set(employees.map(e => e.name))].forEach(name => {
-              const opt = document.createElement("option");
-              opt.value = name;
-              dl.appendChild(opt);
-            });
-          })
-          .catch(() => {
-            document.getElementById("result").textContent = "名簿の読み込みに失敗しました";
-          });
-      }
-
-      function searchEmployee(name) {
-        return employees.find(e => normalizeName(e.name) === normalizeName(name));
-      }
-
-      /* ===== 受付処理 ===== */
-      async function assignCard() {
-        const name = document.getElementById("nameInput").value.trim();
-        if (!name) {
-          document.getElementById("result").textContent = "氏名を入力してください";
-          return;
-        }
-
-        const emp = searchEmployee(name);
-        if (!emp) {
-          document.getElementById("result").textContent = "名簿にありません。受付へ";
-          return;
-        }
-
-        // 日勤／夜勤（URLで分ける想定）
-        const shift = location.pathname.includes("night") ? "night" : "day";
-        const department = emp.department;
-
-        const url =
-          gasAssignUrl +
-          "?shift=" + encodeURIComponent(shift) +
-          "&department=" + encodeURIComponent(department) +
-          "&name=" + encodeURIComponent(name);
-
-        document.getElementById("result").textContent = "カードを割り当てています…";
-
-        try {
-          const res = await fetch(url);
-          const data = await res.json();
-
-          if (data.error) {
-            document.getElementById("result").textContent =
-              "カードがありません。受付スタッフへ";
-            return;
-          }
-
-          // ▼ 表示
-          document.getElementById("result").innerHTML = `
-            <div>
-              <p><strong>${name}</strong> さん</p>
-              <p>部署：${department}</p>
-              <p style="font-size:28px;color:#c00;">
-                カード番号：${data.card_no}
-              </p>
-              <p>受付スタッフはこの番号のカードを渡してください</p>
-              <hr>
-              <p>${getBaggageGuide(data.card_no)}</p>
-            </div>
-          `;
-
-        } catch (e) {
-          document.getElementById("result").textContent = "通信エラーが発生しました";
-        }
-      }
-
-      /* ===== 荷物案内（例） ===== */
-      function getBaggageGuide(cardNo) {
-        if (cardNo >= 300) {
-          return "荷物は【大型ロッカー】に預けてください";
-        }
-        return "荷物は【通常棚】に預けてください";
-      }
-
-      /* ===== イベント ===== */
-      document.getElementById("submitBtn").addEventListener("click", assignCard);
-      document.getElementById("nameInput").addEventListener("keypress", e => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          assignCard();
-        }
-      });
-
-      loadCsv();
+fetch(csvUrl)
+  .then(r=>r.text())
+  .then(t=>{
+    const data = Papa.parse(t,{header:true}).data;
+    employees = data.filter(r=>r.name);
+    const dl = document.getElementById("namelist");
+    employees.forEach(e=>{
+      const o = document.createElement("option");
+      o.value = e.name;
+      dl.appendChild(o);
     });
-  </script>
+  });
+
+function findEmp(name){
+  return employees.find(e=>normalize(e.name)===normalize(name));
+}
+
+document.getElementById("assignBtn").onclick = async () => {
+  const name = document.getElementById("nameInput").value.trim();
+  if(!name) return alert("氏名を入力してください");
+
+  const emp = findEmp(name);
+  const dept = emp?.department || "";
+
+  const url =
+    `${gasUrl}?shift=${shift}&department=${encodeURIComponent(dept)}&name=${encodeURIComponent(name)}`;
+
+  const res = await fetch(url).then(r=>r.json());
+
+  if(res.error){
+    alert(res.error);
+    return;
+  }
+
+  assigned = {
+    name: name,
+    card: res.cardNo,
+    dept: res.department
+  };
+
+  document.getElementById("cardInfo").textContent =
+    `カード番号：${assigned.card} ／ 部署：${assigned.dept || "ALL"}`;
+
+  document.getElementById("nextBtn").style.display = "block";
+};
+
+document.getElementById("nextBtn").onclick = () => {
+  const q =
+    `${entryName}=${encodeURIComponent(assigned.name)}` +
+    `&${entryCard}=${encodeURIComponent(assigned.card)}` +
+    `&${entryDept}=${encodeURIComponent(assigned.dept)}`;
+
+  location.href = googleFormBase + "&" + q;
+};
+</script>
 </body>
 </html>
