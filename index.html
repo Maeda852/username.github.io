@@ -22,6 +22,14 @@ input, button {
   font-size:18px;
   font-weight:bold;
 }
+.notice {
+  margin-top:12px;
+  padding:12px;
+  border:2px solid #333;
+  border-radius:8px;
+  background:#f9f9f9;
+  font-size:16px;
+}
 </style>
 </head>
 
@@ -32,15 +40,25 @@ input, button {
 <datalist id="namelist"></datalist>
 
 <button id="assignBtn">カード割当</button>
+
 <div id="cardInfo"></div>
+
+<div id="notice" class="notice" style="display:none;">
+  この画面を<strong>受付担当者に見せてください</strong><br><br>
+  荷物の預け方が分からない方は「次へ」を押してください。<br>
+  案内が不要な方は、この画面を閉じて大丈夫です。
+</div>
 
 <button id="nextBtn" style="display:none;">次へ</button>
 
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 <script>
 // ===== 設定 =====
-const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpGDiZD4OrEiEzIh4DMRN0eFbHkBGZSnxewenjI-jnTstC1U07dQ0mfvNBM5KW9M88tL5fqQ8fyLWy/pub?output=csv";
-const gasUrl = "https://script.google.com/macros/s/AKfycbyUrbt7ioZSMTK2xdaKteg7-goRp0wiUhSIsi_jTR5R4j1hdPzl7LVW_LSZ15ZWuVcL/exec";
+const csvUrl =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpGDiZD4OrEiEzIh4DMRN0eFbHkBGZSnxewenjI-jnTstC1U07dQ0mfvNBM5KW9M88tL5fqQ8fyLWy/pub?output=csv";
+
+const gasUrl =
+  "https://script.google.com/macros/s/AKfycbyUrbt7ioZSMTK2xdaKteg7-goRp0wiUhSIsi_jTR5R4j1hdPzl7LVW_LSZ15ZWuVcL/exec";
 
 const googleFormBase =
   "https://docs.google.com/forms/d/e/1FAIpQLSfCHO8Ic_LePLxIXwTunyZGOh6WH2heDERT0ycrCDUUO0mUBg/viewform?usp=pp_url";
@@ -58,7 +76,7 @@ let employees = [];
 let assigned = null;
 
 function normalize(s){
-  return (s||"").replace(/\s+/g,"").toLowerCase();
+  return (s || "").replace(/\s+/g,"").toLowerCase();
 }
 
 // ===== CSV 読み込み =====
@@ -79,7 +97,7 @@ fetch(csvUrl)
 // ===== カード割当 =====
 document.getElementById("assignBtn").onclick = async () => {
   const name = document.getElementById("nameInput").value.trim();
-  if(!name){
+  if (!name) {
     alert("氏名を入力してください");
     return;
   }
@@ -95,19 +113,20 @@ document.getElementById("assignBtn").onclick = async () => {
 
   const res = await fetch(url).then(r => r.json());
 
-  if(res.error){
+  if (res.error) {
     alert(res.error);
     return;
   }
 
+  // ★ 部署は employees.csv のものを使用
   assigned = {
     name,
     card: res.cardNo,
-    dept: res.department,
+    dept: dept,
     agency,
     baggageValuable: res.baggageValuable,
     baggageHand: res.baggageHand,
-    guideUrl: res.guideUrl   // ★ 追加
+    guideUrl: res.guideUrl
   };
 
   document.getElementById("cardInfo").innerHTML =
@@ -117,20 +136,21 @@ document.getElementById("assignBtn").onclick = async () => {
     `<strong>貴重品：</strong>${assigned.baggageValuable || "受付確認"}<br>` +
     `<strong>手荷物：</strong>${assigned.baggageHand || "受付確認"}`;
 
+  document.getElementById("notice").style.display = "block";
   document.getElementById("nextBtn").style.display = "block";
 };
 
 // ===== 次へ =====
 document.getElementById("nextBtn").onclick = () => {
-  if(!assigned) return;
+  if (!assigned) return;
 
-  // ★ guide_url があれば最優先
+  // ★ 案内URLがあれば最優先
   if (assigned.guideUrl) {
     location.href = assigned.guideUrl;
     return;
   }
 
-  // ★ 無ければ従来通り Googleフォーム
+  // ★ なければ Googleフォーム
   const q =
     `${entryName}=${encodeURIComponent(assigned.name)}` +
     `&${entryCard}=${encodeURIComponent(assigned.card)}` +
