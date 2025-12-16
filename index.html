@@ -100,19 +100,22 @@ document.getElementById("assignBtn").onclick = async () => {
     return;
   }
 
-  assigned = {
-    name,
-    card: res.cardNo,
-    dept: res.department,
-    agency
-  };
-
-  // ▼ 画面表示（会社名を追加）
-  document.getElementById("cardInfo").textContent =
-    `カード番号：${assigned.card} ／ 部署：${assigned.dept || "ALL"} ／ 会社：${assigned.agency || "-"}`;
-
-  document.getElementById("nextBtn").style.display = "block";
+assigned = {
+  name,
+  card: res.cardNo,
+  dept: res.department,
+  agency,
+  baggageValuable: res.baggageValuable,
+  baggageHand: res.baggageHand
 };
+
+document.getElementById("cardInfo").innerHTML =
+  `カード番号：${assigned.card}<br>` +
+  `部署：${assigned.dept}<br>` +
+  `会社：${assigned.agency || "-"}<br><br>` +
+  `<strong>貴重品：</strong>${assigned.baggageValuable || "受付確認"}<br>` +
+  `<strong>手荷物：</strong>${assigned.baggageHand || "受付確認"}`;
+
 
 // ===== Googleフォームへ =====
 document.getElementById("nextBtn").onclick = () => {
@@ -127,4 +130,5 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
+
 
