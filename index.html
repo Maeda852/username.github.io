@@ -40,7 +40,7 @@ input, button {
 <script>
 // ===== 設定 =====
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpGDiZD4OrEiEzIh4DMRN0eFbHkBGZSnxewenjI-jnTstC1U07dQ0mfvNBM5KW9M88tL5fqQ8fyLWy/pub?output=csv";
-const gasUrl = "https://script.google.com/macros/s/AKfycbypi4RL4stTavIhbOOxOrN_qkYEfUnQeOu4g7_3B--svgFHZOVYcbstYVR6u3T5KOBH/exec";
+const gasUrl = "https://script.google.com/macros/s/AKfycbyUrbt7ioZSMTK2xdaKteg7-goRp0wiUhSIsi_jTR5R4j1hdPzl7LVW_LSZ15ZWuVcL/exec";
 
 const googleFormBase =
   "https://docs.google.com/forms/d/e/1FAIpQLSfCHO8Ic_LePLxIXwTunyZGOh6WH2heDERT0ycrCDUUO0mUBg/viewform?usp=pp_url";
@@ -106,7 +106,8 @@ document.getElementById("assignBtn").onclick = async () => {
     dept: res.department,
     agency,
     baggageValuable: res.baggageValuable,
-    baggageHand: res.baggageHand
+    baggageHand: res.baggageHand,
+    guideUrl: res.guideUrl   // ★ 追加
   };
 
   document.getElementById("cardInfo").innerHTML =
@@ -119,10 +120,17 @@ document.getElementById("assignBtn").onclick = async () => {
   document.getElementById("nextBtn").style.display = "block";
 };
 
-// ===== Googleフォームへ =====
+// ===== 次へ =====
 document.getElementById("nextBtn").onclick = () => {
   if(!assigned) return;
 
+  // ★ guide_url があれば最優先
+  if (assigned.guideUrl) {
+    location.href = assigned.guideUrl;
+    return;
+  }
+
+  // ★ 無ければ従来通り Googleフォーム
   const q =
     `${entryName}=${encodeURIComponent(assigned.name)}` +
     `&${entryCard}=${encodeURIComponent(assigned.card)}` +
@@ -134,6 +142,3 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
-
-
-
