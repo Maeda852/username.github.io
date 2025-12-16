@@ -113,8 +113,8 @@ document.getElementById("cardInfo").innerHTML =
   `カード番号：${assigned.card}<br>` +
   `部署：${assigned.dept}<br>` +
   `会社：${assigned.agency || "-"}<br><br>` +
-  `<strong>貴重品：</strong>${assigned.baggageValuable || "受付確認"}<br>` +
-  `<strong>手荷物：</strong>${assigned.baggageHand || "受付確認"}`;
+  `<strong>貴重品：</strong>${assigned.baggage_valuable || "受付確認"}<br>` +
+  `<strong>手荷物：</strong>${assigned.baggage_hand || "受付確認"}`;
 
 
 // ===== Googleフォームへ =====
@@ -130,5 +130,6 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
+
 
 
