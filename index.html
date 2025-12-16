@@ -38,15 +38,20 @@ input, button {
 
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 <script>
+// ===== 設定 =====
 const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpGDiZD4OrEiEzIh4DMRN0eFbHkBGZSnxewenjI-jnTstC1U07dQ0mfvNBM5KW9M88tL5fqQ8fyLWy/pub?output=csv";
 const gasUrl = "https://script.google.com/macros/s/AKfycbwNFKPIz_G2X9oicGfSYrH2ZBb6OT5ZMhr7zir7IlE9Ced7JXXmc4jeBsG_Q2TOrJ3_/exec";
+
 const googleFormBase =
   "https://docs.google.com/forms/d/e/1FAIpQLSfCHO8Ic_LePLxIXwTunyZGOh6WH2heDERT0ycrCDUUO0mUBg/viewform?usp=pp_url";
 
-const entryName = "entry.1288388977";
-const entryCard = "entry.352252719";
-const entryDept = "entry.1018926610";
+// Googleフォーム entry ID
+const entryName   = "entry.1288388977";
+const entryCard   = "entry.352252719";
+const entryDept   = "entry.1018926610";
+const entryAgency = "entry.XXXXXXXXXX"; // ← 会社名のentryに差し替えて
 
+// ===== 共通 =====
 const params = new URLSearchParams(location.search);
 const shift = params.get("shift") || "day";
 
@@ -57,11 +62,13 @@ function normalize(s){
   return (s||"").replace(/\s+/g,"").toLowerCase();
 }
 
+// ===== CSV 読み込み =====
 fetch(csvUrl)
   .then(r=>r.text())
   .then(t=>{
     const data = Papa.parse(t,{header:true}).data;
     employees = data.filter(r=>r.name);
+
     const dl = document.getElementById("namelist");
     employees.forEach(e=>{
       const o = document.createElement("option");
@@ -74,12 +81,14 @@ function findEmp(name){
   return employees.find(e=>normalize(e.name)===normalize(name));
 }
 
+// ===== カード割当 =====
 document.getElementById("assignBtn").onclick = async () => {
   const name = document.getElementById("nameInput").value.trim();
   if(!name) return alert("氏名を入力してください");
 
   const emp = findEmp(name);
-  const dept = emp?.department || "";
+  const dept   = emp?.department || "";
+  const agency = emp?.agency || "";
 
   const url =
     `${gasUrl}?shift=${shift}&department=${encodeURIComponent(dept)}&name=${encodeURIComponent(name)}`;
@@ -92,33 +101,29 @@ document.getElementById("assignBtn").onclick = async () => {
   }
 
   assigned = {
-    name: name,
+    name,
     card: res.cardNo,
-    dept: res.department
+    dept: res.department,
+    agency
   };
 
+  // ▼ 画面表示（会社名を追加）
   document.getElementById("cardInfo").textContent =
-    `カード番号：${assigned.card} ／ 部署：${assigned.dept || "ALL"}`;
+    `カード番号：${assigned.card} ／ 部署：${assigned.dept || "ALL"} ／ 会社：${assigned.agency || "-"}`;
 
   document.getElementById("nextBtn").style.display = "block";
 };
 
+// ===== Googleフォームへ =====
 document.getElementById("nextBtn").onclick = () => {
   const q =
     `${entryName}=${encodeURIComponent(assigned.name)}` +
     `&${entryCard}=${encodeURIComponent(assigned.card)}` +
-    `&${entryDept}=${encodeURIComponent(assigned.dept)}`;
+    `&${entryDept}=${encodeURIComponent(assigned.dept)}` +
+    `&${entryAgency}=${encodeURIComponent(assigned.agency)}`;
 
   location.href = googleFormBase + "&" + q;
 };
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
