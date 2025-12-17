@@ -103,31 +103,52 @@ document.getElementById("assignBtn").onclick = async () => {
   }
 
   const emp = employees.find(e => normalize(e.name) === normalize(name));
-  const dept   = emp?.department || "";
-  const agency = emp?.agency || "";
-  const fixedCard = emp?.idcard || "";   // ★ 追加：employees.csv の idcard
-
-  const url =
-    `${gasUrl}?shift=${shift}` +
-    `&department=${encodeURIComponent(dept)}` +
-    `&name=${encodeURIComponent(name)}` +
-    `&fixedCard=${encodeURIComponent(fixedCard)}`; // ★ 追加
-
-  const res = await fetch(url).then(r => r.json());
-
-  if (res.error) {
-    alert(res.error);
+  if (!emp) {
+    alert("名簿に存在しない氏名です");
     return;
+  }
+
+  const dept   = emp.department || "";
+  const agency = emp.agency || "";
+  const fixedCard = (emp.idcard || "").trim(); // ★ CSVのカード番号
+
+  let cardNo = "";
+  let baggageValuable = "";
+  let baggageHand = "";
+  let guideUrl = "";
+
+  // ===== CSVにカード番号がある場合 =====
+  if (fixedCard) {
+    cardNo = fixedCard;
+
+  // ===== 無い場合だけGASで割当 =====
+  } else {
+    const url =
+      `${gasUrl}?shift=${shift}` +
+      `&department=${encodeURIComponent(dept)}` +
+      `&name=${encodeURIComponent(name)}`;
+
+    const res = await fetch(url).then(r => r.json());
+
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+
+    cardNo = res.cardNo;
+    baggageValuable = res.baggageValuable;
+    baggageHand = res.baggageHand;
+    guideUrl = res.guideUrl;
   }
 
   assigned = {
     name,
-    card: res.cardNo,
-    dept: dept,
+    card: cardNo,
+    dept: dept,      // ★ 必ず employees.csv の部署
     agency,
-    baggageValuable: res.baggageValuable,
-    baggageHand: res.baggageHand,
-    guideUrl: res.guideUrl
+    baggageValuable,
+    baggageHand,
+    guideUrl
   };
 
   document.getElementById("cardInfo").innerHTML =
@@ -161,3 +182,4 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
+
