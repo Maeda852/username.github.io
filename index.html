@@ -110,45 +110,30 @@ document.getElementById("assignBtn").onclick = async () => {
 
   const dept   = emp.department || "";
   const agency = emp.agency || "";
-  const fixedCard = (emp.idcard || "").trim(); // ★ CSVのカード番号
+  const fixedCard = (emp.idcard || "").trim();
 
-  let cardNo = "";
-  let baggageValuable = "";
-  let baggageHand = "";
-  let guideUrl = "";
+  // ★ 固定カードがあればそれをGASに渡す
+  const url =
+    `${gasUrl}?shift=${shift}` +
+    `&department=${encodeURIComponent(dept)}` +
+    `&name=${encodeURIComponent(name)}` +
+    (fixedCard ? `&card=${encodeURIComponent(fixedCard)}` : "");
 
-  // ===== CSVにカード番号がある場合 =====
-  if (fixedCard) {
-    cardNo = fixedCard;
+  const res = await fetch(url).then(r => r.json());
 
-  // ===== 無い場合だけGASで割当 =====
-  } else {
-    const url =
-      `${gasUrl}?shift=${shift}` +
-      `&department=${encodeURIComponent(dept)}` +
-      `&name=${encodeURIComponent(name)}`;
-
-    const res = await fetch(url).then(r => r.json());
-
-    if (res.error) {
-      alert(res.error);
-      return;
-    }
-
-    cardNo = res.cardNo;
-    baggageValuable = res.baggageValuable;
-    baggageHand = res.baggageHand;
-    guideUrl = res.guideUrl;
+  if (res.error) {
+    alert(res.error);
+    return;
   }
 
   assigned = {
     name,
-    card: cardNo,
-    dept: dept,      // ★ 必ず employees.csv の部署
+    card: fixedCard || res.cardNo,   // ★ 表示はCSV優先
+    dept: dept,                      // ★ 部署はCSV
     agency,
-    baggageValuable,
-    baggageHand,
-    guideUrl
+    baggageValuable: res.baggageValuable,
+    baggageHand: res.baggageHand,
+    guideUrl: res.guideUrl
   };
 
   document.getElementById("cardInfo").innerHTML =
@@ -182,4 +167,5 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
+
 
