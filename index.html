@@ -103,11 +103,6 @@ document.getElementById("assignBtn").onclick = async () => {
   }
 
   const emp = employees.find(e => normalize(e.name) === normalize(name));
-  if (!emp) {
-    alert("名簿に存在しない氏名です");
-    return;
-  }
-
   const dept   = emp.department || "";
   const agency = emp.agency || "";
   const fixedCard = (emp.idcard || "").trim();
@@ -167,6 +162,7 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
+
 
 
 
