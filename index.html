@@ -103,15 +103,21 @@ document.getElementById("assignBtn").onclick = async () => {
   }
 
   const emp = employees.find(e => normalize(e.name) === normalize(name));
-  const dept   = emp.department || "";
-  const agency = emp.agency || "";
-  const fixedCard = (emp.idcard || "").trim();
 
-  // ★ 固定カードがあればそれをGASに渡す
+  // ★ 名簿に無い場合は警告だけ出す（止めない）
+  if (!emp) {
+    alert("名簿に存在しない氏名です。\n受付で確認してください。");
+  }
+
+  // ★ emp が無くても落ちない
+  const dept      = emp?.department || "";
+  const agency    = emp?.agency || "";
+  const fixedCard = (emp?.idcard || "").trim();
+
   const url =
     `${gasUrl}?shift=${shift}` +
-    `&department=${encodeURIComponent(dept)}` +
     `&name=${encodeURIComponent(name)}` +
+    `&department=${encodeURIComponent(dept)}` +
     (fixedCard ? `&card=${encodeURIComponent(fixedCard)}` : "");
 
   const res = await fetch(url).then(r => r.json());
@@ -123,8 +129,8 @@ document.getElementById("assignBtn").onclick = async () => {
 
   assigned = {
     name,
-    card: fixedCard || res.cardNo,   // ★ 表示はCSV優先
-    dept: dept,                      // ★ 部署はCSV
+    card: fixedCard || res.cardNo,
+    dept,
     agency,
     baggageValuable: res.baggageValuable,
     baggageHand: res.baggageHand,
@@ -133,8 +139,8 @@ document.getElementById("assignBtn").onclick = async () => {
 
   document.getElementById("cardInfo").innerHTML =
     `カード番号：${assigned.card}<br>` +
-    `部署：${assigned.dept}<br>` +
-    `会社：${assigned.agency || "-"}<br><br>` +
+    `部署：${assigned.dept || "未登録"}<br>` +
+    `会社：${assigned.agency || "未登録"}<br><br>` +
     `<strong>貴重品：</strong>${assigned.baggageValuable || "受付確認"}<br>` +
     `<strong>手荷物：</strong>${assigned.baggageHand || "受付確認"}`;
 
@@ -162,7 +168,3 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
-
-
-
-
