@@ -58,7 +58,7 @@ const csvUrl =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpGDiZD4OrEiEzIh4DMRN0eFbHkBGZSnxewenjI-jnTstC1U07dQ0mfvNBM5KW9M88tL5fqQ8fyLWy/pub?output=csv";
 
 const gasUrl =
-  "https://script.google.com/macros/s/AKfycbzNp_jUZE1a11W_WsAArrQ_rUrt9P6g4zd_PH2N5UysQf2gUXLr1BgWF9lksJTGGAqZ/exec";
+  "https://script.google.com/macros/s/AKfycbwaM-Ag2HpVxJW6uki0prBnFEARSTJMC1VElz9BI6wKoCbYFqLvLZ8yV6prlMKWZPv8/exec";
 
 const googleFormBase =
   "https://docs.google.com/forms/d/e/1FAIpQLSfCHO8Ic_LePLxIXwTunyZGOh6WH2heDERT0ycrCDUUO0mUBg/viewform?usp=pp_url";
@@ -75,8 +75,9 @@ const shift = params.get("shift") || "day";
 let employees = [];
 let assigned = null;
 
+// ★ 比較・保存用：空白除去
 function normalize(s){
-  return (s || "").replace(/\s+/g,"").toLowerCase();
+  return (s || "").replace(/\s+/g, "").toLowerCase();
 }
 
 // ===== CSV 読み込み =====
@@ -96,27 +97,28 @@ fetch(csvUrl)
 
 // ===== カード割当 =====
 document.getElementById("assignBtn").onclick = async () => {
-  const name = document.getElementById("nameInput").value.trim();
-  if (!name) {
+
+  const rawName = document.getElementById("nameInput").value.trim();
+  if (!rawName) {
     alert("氏名を入力してください");
     return;
   }
 
-  const emp = employees.find(e => normalize(e.name) === normalize(name));
+  const sendName = normalize(rawName); // ★ GAS・フォーム送信用（空白なし）
 
-  // ★ 名簿に無い場合は警告だけ出す（止めない）
+  const emp = employees.find(e => normalize(e.name) === sendName);
+
   if (!emp) {
     alert("名簿に存在しない氏名です。\n受付で確認してください。");
   }
 
-  // ★ emp が無くても落ちない
   const dept      = emp?.department || "";
   const agency    = emp?.agency || "";
   const fixedCard = (emp?.idcard || "").trim();
 
   const url =
     `${gasUrl}?shift=${shift}` +
-    `&name=${encodeURIComponent(name)}` +
+    `&name=${encodeURIComponent(sendName)}` +   // ★ 空白除去した名前
     `&department=${encodeURIComponent(dept)}` +
     (fixedCard ? `&card=${encodeURIComponent(fixedCard)}` : "");
 
@@ -128,7 +130,8 @@ document.getElementById("assignBtn").onclick = async () => {
   }
 
   assigned = {
-    name,
+    name: sendName,          // ★ 保存・送信用
+    displayName: rawName,    // ★ 画面表示用
     card: fixedCard || res.cardNo,
     dept,
     agency,
@@ -138,6 +141,7 @@ document.getElementById("assignBtn").onclick = async () => {
   };
 
   document.getElementById("cardInfo").innerHTML =
+    `氏名：${assigned.displayName}<br>` +
     `カード番号：${assigned.card}<br>` +
     `部署：${assigned.dept || "未登録"}<br>` +
     `会社：${assigned.agency || "未登録"}<br><br>` +
@@ -158,7 +162,7 @@ document.getElementById("nextBtn").onclick = () => {
   }
 
   const q =
-    `${entryName}=${encodeURIComponent(assigned.name)}` +
+    `${entryName}=${encodeURIComponent(assigned.name)}` +   // ★ 空白なし
     `&${entryCard}=${encodeURIComponent(assigned.card)}` +
     `&${entryDept}=${encodeURIComponent(assigned.dept)}` +
     `&${entryAgency}=${encodeURIComponent(assigned.agency)}`;
@@ -168,4 +172,3 @@ document.getElementById("nextBtn").onclick = () => {
 </script>
 </body>
 </html>
-
