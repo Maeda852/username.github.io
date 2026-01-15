@@ -17,6 +17,13 @@ input, button {
   width:100%;
   margin-top:8px;
 }
+button {
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 #cardInfo {
   margin-top:12px;
   font-size:18px;
@@ -30,26 +37,40 @@ input, button {
   background:#f9f9f9;
   font-size:16px;
 }
+#errorBox {
+  margin-top:16px;
+  padding:16px;
+  border:3px solid #c00;
+  border-radius:8px;
+  background:#fff0f0;
+  font-size:18px;
+  font-weight:bold;
+  display:none;
+}
 </style>
 </head>
 
 <body>
 <h1>出社受付</h1>
 
-<input list="namelist" id="nameInput" placeholder="氏名を入力" autocomplete="off" />
-<datalist id="namelist"></datalist>
+<div id="main">
+  <input list="namelist" id="nameInput" placeholder="氏名を入力" autocomplete="off" />
+  <datalist id="namelist"></datalist>
 
-<button id="assignBtn">カード割当</button>
+  <button id="assignBtn">カード割当</button>
 
-<div id="cardInfo"></div>
+  <div id="cardInfo"></div>
 
-<div id="notice" class="notice" style="display:none;">
-  この画面を<strong>受付担当者に見せてください</strong><br><br>
-  荷物の預け方が分からない方は「次へ」を押してください。<br>
-  案内が不要な方は、この画面を閉じて大丈夫です。
+  <div id="notice" class="notice" style="display:none;">
+    この画面を<strong>受付担当者に見せてください</strong><br><br>
+    荷物の預け方が分からない方は「次へ」を押してください。<br>
+    案内が不要な方は、この画面を閉じて大丈夫です。
+  </div>
+
+  <button id="nextBtn" style="display:none;">次へ</button>
 </div>
 
-<button id="nextBtn" style="display:none;">次へ</button>
+<div id="errorBox"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 <script>
@@ -58,7 +79,7 @@ const csvUrl =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSpGDiZD4OrEiEzIh4DMRN0eFbHkBGZSnxewenjI-jnTstC1U07dQ0mfvNBM5KW9M88tL5fqQ8fyLWy/pub?output=csv";
 
 const gasUrl =
-  "https://script.google.com/macros/s/AKfycbwaM-Ag2HpVxJW6uki0prBnFEARSTJMC1VElz9BI6wKoCbYFqLvLZ8yV6prlMKWZPv8/exec";
+  "https://script.google.com/macros/s/AKfycbygF5HXSpdK1au7z_Gj3y_vtPBLEC-ygrxzTbAISngrlmBvKCR6q0E17y0NTaqewyUa/exec";
 
 const googleFormBase =
   "https://docs.google.com/forms/d/e/1FAIpQLSfCHO8Ic_LePLxIXwTunyZGOh6WH2heDERT0ycrCDUUO0mUBg/viewform?usp=pp_url";
@@ -75,9 +96,17 @@ const shift = params.get("shift") || "day";
 let employees = [];
 let assigned = null;
 
-// ★ 比較・保存用：空白除去
+// 空白除去＋小文字
 function normalize(s){
-  return (s || "").replace(/\s+/g, "").toLowerCase();
+  return (s || "").replace(/[\s　]+/g, "").toLowerCase();
+}
+
+// エラー表示（受付OFFなど）
+function showError(msg){
+  document.getElementById("main").style.display = "none";
+  const box = document.getElementById("errorBox");
+  box.innerHTML = msg;
+  box.style.display = "block";
 }
 
 // ===== CSV 読み込み =====
@@ -97,32 +126,37 @@ fetch(csvUrl)
 
 // ===== カード割当 =====
 document.getElementById("assignBtn").onclick = async () => {
-
   const rawName = document.getElementById("nameInput").value.trim();
   if (!rawName) {
     alert("氏名を入力してください");
     return;
   }
 
-  const sendName = normalize(rawName); // ★ GAS・フォーム送信用（空白なし）
-
+  const sendName = normalize(rawName);
   const emp = employees.find(e => normalize(e.name) === sendName);
 
   if (!emp) {
     alert("名簿に存在しない氏名です。\n受付で確認してください。");
+    return;
   }
 
   const dept      = emp?.department || "";
   const agency    = emp?.agency || "";
-  const fixedCard = (emp?.idcard || "").trim();
+  const fixedCard = String(emp?.idcard || "").trim();
 
   const url =
     `${gasUrl}?shift=${shift}` +
-    `&name=${encodeURIComponent(sendName)}` +   // ★ 空白除去した名前
+    `&name=${encodeURIComponent(sendName)}` +
     `&department=${encodeURIComponent(dept)}` +
     (fixedCard ? `&card=${encodeURIComponent(fixedCard)}` : "");
 
   const res = await fetch(url).then(r => r.json());
+
+  // ===== 受付OFF =====
+  if (res.error === "reception_closed") {
+    showError("現在は受付時間外です。<br>受付担当者にお声がけください。");
+    return;
+  }
 
   if (res.error) {
     alert(res.error);
@@ -130,8 +164,8 @@ document.getElementById("assignBtn").onclick = async () => {
   }
 
   assigned = {
-    name: sendName,          // ★ 保存・送信用
-    displayName: rawName,    // ★ 画面表示用
+    name: sendName,
+    displayName: rawName,
     card: fixedCard || res.cardNo,
     dept,
     agency,
@@ -162,7 +196,7 @@ document.getElementById("nextBtn").onclick = () => {
   }
 
   const q =
-    `${entryName}=${encodeURIComponent(assigned.name)}` +   // ★ 空白なし
+    `${entryName}=${encodeURIComponent(assigned.name)}` +
     `&${entryCard}=${encodeURIComponent(assigned.card)}` +
     `&${entryDept}=${encodeURIComponent(assigned.dept)}` +
     `&${entryAgency}=${encodeURIComponent(assigned.agency)}`;
